@@ -1,0 +1,52 @@
+import {collection,simulate,scenarios,months,sum} from './engine.js'
+import {esc,fmt,icon,action,head,stat,chart} from './ui.js'
+import {downloadCSV,downloadPDF} from './reports.js'
+const table=(headers,rows)=>'<div class="tablewrap"><table><thead><tr>'+headers.map(h=>'<th scope="col">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'
+export function results(main,m,reset){
+ if(!m){main.innerHTML=head('Assessment results','Your assessment starts here','Complete the calculator to see monthly collection, tank performance and scenario comparisons.')+action('/calculator','Open calculator','calculator');return}
+ const yieldProfile=collection(m)
+ const place=[m.city,m.district!==m.city?m.district:'',m.state,m.country].filter(Boolean).join(', ')
+ const {area,harvest,annualRain,monthlyAverage,dailyAverage,rows}=yieldProfile
+ const summaryProps=[['Location',place||'Selected pin'],['Coordinates',m.lat+'°, '+m.lon+'°'],['Catchment',fmt(area,2)+' m²'],['Runoff coefficient',m.coefficient],['Collection efficiency',m.efficiency+'%']]
+ main.innerHTML=head('Assessment results','Rooftop harvesting potential',place)+
+  '<section class="yield-total"><h2>Annual harvesting potential</h2><strong>'+fmt(harvest)+' <small>L / year</small></strong><p>After roof runoff and collection losses, before storage limits.</p></section>'+
+  '<div class="stats resultsgrid yield-metrics">'+stat('Rooftop area',fmt(area,2),'m²',m.polygonArea?'Traced footprint':'Measured footprint','house')+
+  stat('Annual rainfall',fmt(annualRain,2),'mm','Sum of monthly rainfall','cloud-rain',true)+stat('Monthly average collection',fmt(monthlyAverage),'L','Annual potential ÷ 12','droplets',true)+
+  stat('Daily average collection',fmt(dailyAverage,1),'L','Annual potential ÷ 365','droplet',true)+'</div>'+
+  '<section class="panel result-section"><h2>Monthly collection</h2><p>Rainfall source: '+esc(m.source)+'</p><p class="hint">Runoff coefficient '+esc(m.coefficient)+' · Collection efficiency '+esc(m.efficiency)+'%</p><div id="yield-chart"></div>'+
+  '<details><summary>Monthly figures</summary>'+table(['Month','Rainfall (mm)','Collection (L)'],rows.map(v=>[v.month,fmt(v.rain,2),fmt(v.harvested,2)]))+'</details></section>'+
+  '<details class="panel result-section" id="advanced-results"><summary>Advanced Assessment</summary>'+action('/calculator/#advanced',m.advanced?'Edit tank & demand':'Set up tank & demand','calculator','light')+'<div id="analytics"></div></details>'+
+  '<div class="actions"><button id="pdf">Download PDF</button><button class="light" id="csv">Export CSV</button><button class="light" id="print">Print</button>'+action('/calculator','Edit assessment','pencil','light')+'<button class="light" id="reset">Start new assessment</button></div><p id="exportstatus" role="status"></p>'
+ chart(main.querySelector('#yield-chart'),months,[{name:'Collected',values:rows.map(v=>v.harvested)}],'L','Monthly rooftop collection')
+ const report=m.advanced?advancedResults(main.querySelector('#analytics'),m,place):{m,r:yieldProfile,props:summaryProps}
+ main.querySelector('#csv').onclick=()=>downloadCSV(m,report.r)
+ main.querySelector('#print').onclick=()=>window.print()
+ main.querySelector('#reset').onclick=reset
+ document.querySelector('#pdf').onclick=async e=>{const b=e.currentTarget;b.disabled=true;try{await downloadPDF(report);document.querySelector('#exportstatus').textContent='PDF report generated.'}catch{document.querySelector('#exportstatus').textContent='PDF generation failed. Use Print to save a PDF.'}finally{b.disabled=false}}
+}
+
+function advancedResults(main,m,place){
+ const r=simulate(m),sc=scenarios(m)
+ const rating=r.coverage==null?'No demand entered':r.coverage>=90?'Excellent potential':r.coverage>=70?'Good potential':r.coverage>=40?'Moderate potential':'Limited potential'
+ const desc='Your rooftop could collect '+fmt(r.harvest)+' L in the assessed year. '+(r.demand?'With a '+fmt(m.tank)+' L tank, the system supplies '+fmt(r.supplied)+' L and meets '+fmt(r.coverage,1)+'% of your '+fmt(r.demand)+' L non-potable demand.':'With no demand entered, water remains in storage or overflows.')+(m.initial?' Supply includes access to '+fmt(m.initial)+' L initially stored.':'')
+ const props=[['Property',m.property],['Location',place||'Selected pin'],['Coordinates',fmt(m.lat,5)+', '+fmt(m.lon,5)],['Climate subdivision',m.climate||'Unspecified'],['Roof',m.material+' · '+(m.polygonArea?'mapped footprint':fmt(m.length,2)+' × '+fmt(m.width,2)+' ft')],['Catchment',fmt(r.area,2)+' m² / '+fmt(r.ft,1)+' ft²'],['Runoff / efficiency',m.coefficient+' / '+m.efficiency+'%'],['Tank',m.tankType+' · '+fmt(m.tank)+' L'],['Initial storage',fmt(m.initial)+' L'],['Vegetation',m.plant+' · '+fmt(m.land,1)+' ft²'],['Irrigation method',m.mode],['Filtration',m.filter||'Unspecified']]
+ const historic=m.years.map(y=>({year:y.year,volume:simulate({...m,rain:y.rain,eto:y.eto}).harvest}))
+ const scenarioNote=historic.length>=3?'Selected complete years are nearest the 10th, 50th and 90th percentile ranks by annual rainfall. Each uses its own monthly rainfall and available ET₀. These are relative climate scenarios.':'Illustrative sensitivity test using 70%, 100% and 130% of your monthly rainfall. ET₀ stays fixed. These factors are assumptions, not historical measurements.'
+ const capacities=[...new Set([m.tank/2,m.tank,Math.max(1,m.tank*2)])].map(cap=>({cap,r:simulate({...m,tank:cap,initial:Math.min(m.initial,cap)})}))
+ const threshold=.95*Math.max(...capacities.map(x=>x.r.supplied)),choice=capacities.find(x=>x.r.supplied>=threshold)
+ const recommendation=r.demand&&r.harvest?'Of the tested tanks, '+fmt(choice.cap,1)+' L is the smallest that supplies at least 95% of the best tested annual supply.':'Enter rainfall and demand to compare tank sizing.'
+ const report={m,r,sc,props,rating,desc,scenarioNote,historic,recommendation}
+ main.innerHTML='<div class="panel"><span class="tag">'+icon('gauge')+esc(rating)+'</span><p>'+esc(desc)+'</p><p class="hint">Coverage bands: limited below 40%, moderate 40–&lt;70%, good 70–&lt;90%, excellent 90–100%. These are planning categories.</p></div><div class="sectionhead"><h2>Annual performance</h2></div><div class="stats resultsgrid">'+
+ stat('Annual potential',fmt(r.harvest),'L','Collected before tank limits','droplets',true)+stat('Monthly collection',fmt(r.harvest/12),'L','Average per month','cloud-rain',true)+stat('Irrigation demand',fmt(r.irrigation/12),'L/mo','Monthly average','sprout')+stat('Indoor demand',fmt(m.indoor),'L/mo','Non-potable use','house')+
+ stat('Total demand',fmt(r.demand),'L/yr','Irrigation + indoor + other','waves')+stat('Available storage',fmt(m.tank-r.storage),'L','Free space at year end','cylinder',true)+stat('Demand coverage',fmt(r.coverage,1),r.coverage==null?'':'%',fmt(r.deficit)+' L annual deficit','gauge')+stat('Annual overflow',fmt(r.overflow),'L','Surplus beyond capacity','droplet',true)+'</div>'+
+ '<section class="panel result-section"><div class="paneltop"><div><h3>Monthly water balance</h3><p class="meta">Select a profile and explore individual months.</p></div><div class="seg" id="series"></div></div><div id="profile"></div></section><section class="panel result-section"><h3>Monthly accounting</h3><p class="meta">Water volumes in litres. Starting storage + harvest = supply + ending storage + overflow.</p>'+table(['Month','Rain (mm)','Starting','Harvest','Irrigation','Demand','Supplied','Ending','Overflow','Deficit'],r.rows.map(v=>[v.month,...['rain','start','harvested','irrigation','demand','supplied','storage','overflow','deficit'].map(k=>fmt(v[k],k==='rain'?1:0))]))+'</section>'+
+ '<section class="panel result-section"><h3>Rainfall scenario comparison</h3><p>'+esc(scenarioNote)+'</p>'+table(['Scenario','Basis','Harvest (L)','Irrigation (L)','Coverage','End storage (L)','Shortage (L)','Overflow (L)'],sc.map(s=>[s.label,s.basis,fmt(s.harvest),fmt(s.irrigation),s.coverage==null?'—':fmt(s.coverage,1)+'%',fmt(s.storage),fmt(s.deficit),fmt(s.overflow)]))+'</section>'+
+ '<section class="panel result-section"><h3>Historical harvesting potential</h3><p class="meta">'+(historic.length?'Annual yield for the assessed roof, calculated from historical rainfall. The roof and loss factors are held constant.':'No complete historical record is attached to this assessment. Load historical climate on the Location step to compare years.')+'</p><div id="history"></div></section>'+
+ '<section class="panel result-section"><h3>Tank sizing & availability</h3><p>'+esc(recommendation)+'</p>'+table(['Tank (L)','Starting (L)','Supplied (L/yr)','Overflow (L/yr)'],capacities.map(x=>[fmt(x.cap,1),fmt(x.r.rows[0].start),fmt(x.r.supplied),fmt(x.r.overflow)]))+'<p>Year-end stored water: <strong>'+fmt(r.storage)+' L</strong>. Average month-end tank utilization: '+(r.util==null?'undefined for a zero-capacity tank':fmt(r.util,1)+'%')+'. Daily or storm-level sizing requires finer data.</p></section>'+
+ '<section class="panel result-section"><h3>Property assessment</h3><dl class="props">'+props.map(([k,v])=>'<div><dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl>'+(m.photo?'<img class="photo" alt="Uploaded rooftop photograph" id="sitephoto">':'')+'<p>Rainfall: '+esc(m.source)+' · '+fmt(sum(m.rain),1)+' mm/year.</p><p>Reference ET₀: '+esc(m.etoSource)+'.</p><p class="hint">Monthly simulation pools all demand before capping storage. It assumes inflow can meet demand within the month. No drinking-water quality assessment is included.</p></section>'
+ if(m.photo)main.querySelector('#sitephoto').src=m.photo
+ const profiles={Collection:[['Harvested','harvested'],['Demand','demand'],['Supplied','supplied']],Rainfall:[['Rainfall','rain']],Storage:[['End storage','storage'],['Deficit','deficit']]}
+ function show(key){document.querySelector('#series').innerHTML=Object.keys(profiles).map(name=>'<button class="'+(name===key?'selected':'')+'">'+name+'</button>').join('');document.querySelectorAll('#series button').forEach(b=>b.onclick=()=>show(b.textContent));chart(document.querySelector('#profile'),months,profiles[key].map(([name,k])=>({name,values:r.rows.map(row=>row[k])})),key==='Rainfall'?'mm':'L')}
+ show('Collection');if(historic.length)chart(document.querySelector('#history'),historic.map(y=>y.year),[{name:'Harvest potential',values:historic.map(y=>y.volume)}],'L','Historical comparison')
+ return report
+}

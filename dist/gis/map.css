@@ -1,0 +1,15 @@
+.geo-shell{display:grid;gap:16px;min-width:0}
+.geo-fields,.geo-coordinates{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr))}
+.geo-shell label{display:grid;gap:6px;color:#29473f;font-size:.88rem;font-weight:600}
+.geo-shell input,.geo-shell select{min-width:0;max-width:100%;width:100%;padding:10px;border:1px solid #bdcfc6;border-radius:7px;background:white;color:#183b31;font:inherit;box-sizing:border-box}
+.geo-shell button{cursor:pointer;padding:.55rem .85rem;border-radius:7px;border:1px solid #bccfc4;background:white;color:#264a3b;font:600 .88rem/1.35 system-ui}
+.geo-shell button.active,.geo-shell button:hover{background:#e5efe9}.geo-shell button:disabled{opacity:.55}
+.geo-shell .geo-toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.geo-map{width:100%;height:clamp(295px,43vw,455px);background:#e7efe9;border:1px solid #b4c9bc;border-radius:10px;z-index:0;isolation:isolate;color:#163d32}
+.geo-map.leaflet-container{background-color:#e8efe9}.geo-map .leaflet-container,.geo-map .leaflet-control a{text-decoration:none}
+.geo-shell .geo-note{font-size:.82rem;line-height:1.45;color:#405f50;margin:0}
+.geo-panel{border:1px solid #c4d3ca;border-radius:8px;padding:12px}
+.geo-results{display:flex;flex-wrap:wrap;gap:6px}.geo-shell .geo-map *{box-sizing:content-box}
+.geo-shell [hidden]{display:none!important}.geo-map .leaflet-control-attribution{font:11px/1.5 system-ui;background:rgba(255,255,255,.95)}
+@media print{.geo-shell{display:none}}
+.geo-shell .geo-climate-summary{margin-top:8px;font-weight:600}.geo-district-label{text-align:center;color:#355947;font:600 11px/16px system-ui;text-shadow:0 1px white,1px 0 white,-1px 0 white}

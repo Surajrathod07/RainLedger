@@ -1,0 +1,12 @@
+District reference map: Indian District Boundaries (2019 snapshot, 734 districts) by Guneet Narula and DataMeet contributors, via infenia/indian-district-coordinates. Simplified by 0.012 degrees for browser display. Representative points fall inside each simplified district. Administrative reorganizations after the vintage are not represented.
+https://github.com/guneetnarula/indian-district-boundaries
+https://github.com/infenia/indian-district-coordinates
+https://datameet.org/
+Maharashtra meteorological subdivision names and districts: India Meteorological Department, Climate of Maharashtra.
+https://imdpune.gov.in/library/public/Climate%20of%20Maharashtra.pdf
+Pune archive: Open-Meteo Historical Weather API, ECMWF ERA5 reanalysis (CC BY 4.0). Requested 18.5204 N, 73.8567 E; grid coordinate recorded in archives.json. Daily rain_sum and et0_fao_evapotranspiration aggregated to monthly sums for every day in 2016–2025.
+https://archive-api.open-meteo.com/v1/archive?latitude=18.5204&longitude=73.8567&start_date=2016-01-01&end_date=2025-12-31&daily=rain_sum,et0_fao_evapotranspiration&models=era5&timezone=auto
+https://open-meteo.com/en/docs/historical-weather-api
+https://creativecommons.org/licenses/by/4.0/
+City search: Open-Meteo Geocoding API / GeoNames. Basemap: OpenStreetMap contributors. Leaflet license included in vendor/leaflet.
+archives.json includes the same verified 2016–2025 archive retrieval for eight district reference points (Pune, Buldana, Mumbai, Nagpur, New Delhi, Jaipur, Chennai and Kolkata) and Pune city. Each map key is the requested coordinate; each record preserves the actual model grid coordinate. Bundled archives are applied only to their matching selection.
